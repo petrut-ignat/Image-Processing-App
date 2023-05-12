@@ -1,70 +1,131 @@
+# importing the necessary packages
 import PySimpleGUI as sg
-from PIL import Image, ImageFilter, ImageOps
+from PIL import Image, ImageFilter
+from PIL.Image import fromarray
 from io import BytesIO
 import numpy as np
 import time
 import math
-
-# python based GUI application that allows the user to apply filters to an image while viewing the result in real time
-def blur_image(img, blur_factor):
-    # preluăm dimensiunile imaginii
-    width, height = img.size
-
-    # creăm o copie a imaginii originale
-    blurred_img = img.copy()
-
-    # calculăm dimensiunea kernel-ului
-    kernel_size = blur_factor * 2 + 1
-
-    # iterăm prin fiecare pixel al imaginii
-    for y in range(height):
-        for x in range(width):
-            # inițializăm valoarea medie a vecinilor pixelului curent la 0
-            r_sum, g_sum, b_sum = 0, 0, 0
-            count = 0
-
-            # iterăm prin vecinii pixelului curent și calculăm suma canalelor lor de culoare
-            for j in range(-blur_factor, blur_factor+1):
-                for i in range(-blur_factor, blur_factor+1):
-                    pixel_x = x + i
-                    pixel_y = y + j
-                    if 0 <= pixel_x < width and 0 <= pixel_y < height:
-                        r, g, b = img.getpixel((pixel_x, pixel_y))
-                        r_sum += r
-                        g_sum += g
-                        b_sum += b
-                        count += 1
-
-            # calculăm media canalelor de culoare pentru vecinii pixelului curent
-            r_avg = r_sum // count
-            g_avg = g_sum // count
-            b_avg = b_sum // count
-
-            # setăm noul pixel cu valorile medii calculare
-            blurred_img.putpixel((x, y), (r_avg, g_avg, b_avg))
-
-    # întoarcem imaginea prelucrată
-    return blurred_img
+import sys
+from numpy import mean, zeros_like, array
 
 
 def grayscale(image):
 
-    # convertire imagine din RGBA in RGB
-    image = image.convert('RGB')
-    image = np.array(image)
+    image = array(image.convert('RGB'))
 
     for i in range(0, image.shape[0], 1):
         for j in range(0, image.shape[1], 1):
-            # gray = np.sum(image[i][j][0:3])/3
-            gray = int(0.3*image[i][j][0] + 0.59 * image[i]
-                       [j][1] + 0.11 * image[i][j][2])
-            image[i][j][1] = gray
-            image[i][j][0] = gray
-            image[i][j][2] = gray
+            image[i][j][:] = int(0.3 * image[i][j][0] + 0.59 * image[i][j][1] + 0.11 * image[i][j][2])
+            
+    return Image.fromarray(image.astype('uint8'))
 
-    # refacere imagine din array
-    image = Image.fromarray(image.astype('uint8'))
-    return image
+def detect_edges(image):
+
+    image = array(image.convert('RGB'))
+    height, width = image.shape[:2]
+
+    new_image = zeros_like(image)
+    new_image[:][:] = [255, 255, 255]
+
+    for i in range(1, width-1):
+        for j in range(1, height-1):
+            old_pix = image[j][i]
+            left_pix = image[j][i-1]
+            bottom_pix = image[j+1][i]
+            right_pix = image[j][i+1]
+            top_pix = image[j-1][i]
+
+            if abs(mean(old_pix[:]) - mean(left_pix[:])) > 10 or \
+                abs(mean(old_pix[:]) - mean(bottom_pix[:])) > 10 or \
+                abs(mean(old_pix[:]) - mean(right_pix[:])) > 10 or \
+                abs(mean(old_pix[:]) - mean(top_pix[:])) > 10:
+                new_image[j][i] = [0, 0, 0]
+
+    return fromarray(new_image.astype('uint8'))
+
+
+
+def invert_colors(image):
+# de prezentat diferenta de timp intre metodele de mai jos
+
+    # width, height = image.size
+
+    # inverted_image = Image.new('RGB', (width, height))
+
+    # for y in range(height):
+    #     for x in range(width):
+    #         pixel = image.getpixel((x, y))
+    #         inverted_pixel = tuple(255 - color for color in pixel)
+    #         inverted_image.putpixel((x, y), inverted_pixel)
+
+    # return inverted_image
+
+    image = np.array(image.convert('RGB'))
+
+    inverted_image = np.zeros_like(image)
+
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            inverted_image[i][j][:] = 255 - image[i][j][:]
+
+    return Image.fromarray(inverted_image.astype('uint8'))
+
+
+def mirror_image(image):
+
+    # width, height = image.size
+
+    # mirrored_image = Image.new('RGB', (width, height))
+
+    # for y in range(height):
+    #     for x in range(width):
+    #         pixel = image.getpixel((width - x - 1, y))
+    #         mirrored_image.putpixel((x, y), pixel)
+
+    # return mirrored_image
+
+    image = np.array(image.convert('RGB'))
+
+    mirror_image = np.zeros_like(image)
+
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            mirror_image[i][j][:] = image[i][image.shape[1] - j - 1][:]
+
+    return Image.fromarray(mirror_image.astype('uint8'))
+
+
+def flip_image_vertically(image):
+
+    # width, height = image.size
+
+    # flipped_image = Image.new('RGB', (width, height))
+
+    # for y in range(height):
+    #     for x in range(width):
+    #         pixel = image.getpixel((x, height - y - 1))
+    #         flipped_image.putpixel((x, y), pixel)
+
+    # return flipped_image
+    
+    image = np.array(image.convert('RGB'))
+
+    flipped_image = np.zeros_like(image)
+
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            flipped_image[i][j][:] = image[image.shape[0] - i - 1][j][:]
+
+    return Image.fromarray(flipped_image.astype('uint8'))
+
+
+def sharpen_image(image, amount):
+
+    sharpened_image = image.filter(ImageFilter.Kernel((3,3), (0,-1,0,-1,5,-1,0,-1,0), 1, 0))
+    sharpened_image = Image.blend(image, sharpened_image, amount)
+    
+    return sharpened_image.convert('RGB')
 
 
 def gaussian_kernel_1d(sigma):
@@ -80,6 +141,7 @@ def gaussian_kernel_1d(sigma):
 
 def gaussian_blur(image, radius):
     # Compute the 1D Gaussian kernel of size 6*sigma+1
+    radius += 2
     sigma = radius / 3.0
     kernel_1d = gaussian_kernel_1d(sigma)
     radius = int(radius)
@@ -110,6 +172,41 @@ def gaussian_blur(image, radius):
 
     blurred_image = Image.fromarray(blurred_pixels.astype('uint8'))
     return blurred_image
+
+def emboss_filter(image):
+    width, height = image.size
+    emboss_image = Image.new("RGB", (width, height), (0, 0, 0))
+    
+    kernel = [
+        [-2, -1, 0],
+        [-1,  1, 1],
+        [ 0,  1, 2]
+    ]
+    
+    for x in range(1, width - 1):
+        for y in range(1, height - 1):
+            r_total = 0
+            g_total = 0
+            b_total = 0
+            
+            for i in range(3):
+                for j in range(3):
+                    pixel = image.getpixel((x+i-1, y+j-1))
+                    r_total += pixel[0] * kernel[i][j]
+                    g_total += pixel[1] * kernel[i][j]
+                    b_total += pixel[2] * kernel[i][j]
+            
+            r_total += 128
+            g_total += 128
+            b_total += 128
+            
+            r_total = max(0, min(255, r_total))
+            g_total = max(0, min(255, g_total))
+            b_total = max(0, min(255, b_total))
+            
+            emboss_image.putpixel((x, y), (r_total, g_total, b_total))
+    
+    return emboss_image
 
 
 def adjust_contrast(image, level):
@@ -235,56 +332,6 @@ def emphasize_edges(image):
 
     return result_image
 
-
-def mirror_image(image):
-    # Get the width and height of the image
-    width, height = image.size
-
-    # Create a new image with the same dimensions as the input image
-    mirrored_image = Image.new('RGB', (width, height))
-
-    # Copy the pixels from the input image to the mirrored image in reverse order
-    for y in range(height):
-        for x in range(width):
-            pixel = image.getpixel((width - x - 1, y))
-            mirrored_image.putpixel((x, y), pixel)
-
-    return mirrored_image
-
-
-def flip_image_vertically(image):
-    # Get the width and height of the image
-    width, height = image.size
-
-    # Create a new image with the same dimensions as the input image
-    flipped_image = Image.new('RGB', (width, height))
-
-    # Copy the pixels from the input image to the flipped image in reverse order
-    for y in range(height):
-        for x in range(width):
-            pixel = image.getpixel((x, height - y - 1))
-            flipped_image.putpixel((x, y), pixel)
-
-    return flipped_image
-
-
-def invert_colors(image):
-    # Get the width and height of the image
-    width, height = image.size
-
-    # Create a new image with the same dimensions as the input image
-    inverted_image = Image.new('RGB', (width, height))
-
-    # Loop over the pixels of the input image and invert the colors of each pixel
-    for y in range(height):
-        for x in range(width):
-            pixel = image.getpixel((x, y))
-            inverted_pixel = tuple(255 - color for color in pixel)
-            inverted_image.putpixel((x, y), inverted_pixel)
-
-    return inverted_image
-
-
 def threshold(image, threshold_value):
     # Get the width and height of the image
     width, height = image.size
@@ -312,6 +359,9 @@ def threshold(image, threshold_value):
     return threshold_image
 
 
+
+
+
 def update_image(original, blur, contrast, emboss, contour, flipx, flipy, grayScale, sepia, sharp, invert):
     global image
 
@@ -330,7 +380,11 @@ def update_image(original, blur, contrast, emboss, contour, flipx, flipy, graySc
         image = apply_sepia(image, sepia)
 
     if sharp != 0:
-        image = threshold(image, sharp)
+        # image = threshold(image, sharp)
+        t_start = time.perf_counter()
+        image = sharpen_image(image, sharp)
+        t_end = time.perf_counter()
+        print(f'sharpen_image: {t_end - t_start}')
 
     if grayScale:
         t_start = time.perf_counter()
@@ -339,11 +393,19 @@ def update_image(original, blur, contrast, emboss, contour, flipx, flipy, graySc
         print(f'grayscale: {t_end - t_start}')
 
     if emboss:
-        image = image.filter(ImageFilter.EMBOSS())
+        t_start = time.perf_counter()
+        # image = image.filter(ImageFilter.EMBOSS())
+        image = emboss_filter(image)
+        t_end = time.perf_counter()
+        print(f'EMBOSS: {t_end - t_start}')
 
     if contour:
         # image = image.filter(ImageFilter.CONTOUR())
-        image = emphasize_edges(image)
+        t_start = time.perf_counter()
+        # image = emphasize_edges(image)
+        image = detect_edges(image)
+        t_end = time.perf_counter()
+        print(f'emphasize_edges: {t_end - t_start}')
 
     if flipx:
         # image = ImageOps.mirror(image)
@@ -357,7 +419,10 @@ def update_image(original, blur, contrast, emboss, contour, flipx, flipy, graySc
         print(f'flip_image_vertically: {t_end - t_start}')
 
     if invert:
+        t_start = time.perf_counter()
         image = invert_colors(image)
+        t_end = time.perf_counter()
+        print(f'invert_colors: {t_end - t_start}')
 
     bio = BytesIO()
     image.save(bio, format='PNG')
@@ -370,7 +435,7 @@ image_path = sg.popup_get_file('Open', no_window=True)
 # page layout
 control_col = sg.Column([
     [sg.Frame('Blur', layout=[
-              [sg.Slider(range=(0, 10), orientation='h', key='-BLUR-')]])],
+              [sg.Slider(range=(0, 5), orientation='h', key='-BLUR-')]])],
     [sg.Frame('Sepia', layout=[
               [sg.Slider(range=(0, 10), orientation='h', key='-SEPIA-')]])],
     [sg.Frame('Contrast', layout=[
@@ -387,9 +452,7 @@ control_col = sg.Column([
      sg.Button('Exit', key='-EXIT-')]
 ])
 image_col = sg.Column([
-    [sg.Image(image_path, key='-IMAGE-')],
-    [sg.Input(key='-FILE-', enable_events=True,
-              visible=False), sg.FileBrowse()]
+    [sg.Image(image_path, key='-IMAGE-')]
 ])
 
 layout = [[control_col, image_col]]
@@ -436,7 +499,7 @@ while (True):
         save_path = sg.popup_get_file(
             'Save', save_as=True, no_window=True) + '.png'
         image.save(save_path, 'PNG')
-    
+
     if event == '-EXIT-':
         window.close()
 
